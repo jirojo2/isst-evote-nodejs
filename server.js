@@ -30,6 +30,7 @@ app.post('/voto', function(req, res) {
     var voto = new Modelo.Voto({
         _id: Modelo.generarId(),
         timestamp: Date.now(),
+        timestampEmitido: req.body.timestamp,
         votacion: req.body.votacion_id,
         cee: req.body.cee_id,
         sector: req.body.sector_id,
@@ -41,9 +42,10 @@ app.post('/voto', function(req, res) {
     voto.save(function(err) {
         if (err) {
             res.json({ nonce: req.body.nonce, respuesta: 'rechazado por error', timestamp: Date.now() });
+            return console.log(err);
         }
         res.json({ nonce: req.body.nonce, respuesta: 'ok', timestamp: Date.now() });
-    })
+    });
 });
 
 app.get('/resultados', function(req, res) {
