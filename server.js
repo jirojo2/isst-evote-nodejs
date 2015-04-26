@@ -194,7 +194,7 @@ app.post('/sync', function(req, res) {
     ];
 
     // If votacion is supplied: just give back the data
-    var votacionId = req.query.votacion;
+    var votacionId = req.body.votacion;
     if (votacionId) {
         async.series([
             function(cb) {
