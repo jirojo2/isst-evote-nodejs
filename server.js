@@ -162,7 +162,6 @@ app.get('/resultados', function(req, res) {
 });
 
 app.post('/sync', function(req, res) {
-    // Create CEE and other models
 
     var cee = null;
     var votacion = null;
@@ -170,6 +169,7 @@ app.post('/sync', function(req, res) {
     var candidatos = [];
     var sectores = [];
 
+    // Last UPM Data
     var censo = [
         {
             nombre: 'grupoA',
@@ -193,80 +193,157 @@ app.post('/sync', function(req, res) {
         }
     ];
 
-    async.series([
-        function(cb) {
-            cee = new Modelo.CEE({
-                _id: Modelo.generarId(),
-                nombre: 'CEE de prueba',
-                clavePublica: req.body.key
-            });
-            cee.save(cb);
-        },
-        function(cb) {
-            votacion = new Modelo.Votacion({
-                _id: Modelo.generarId(),
-                nombre: 'Votación de prueba'
-            });
-            votacion.save(cb);
-        },
-        function(cb) {
-            blanco = new Modelo.Candidato({
-                _id: Modelo.generarId(),
-                votacion: votacion.id,
-                nombre: 'blanco',
-                apellidos: 'blanco',
-                nif: 'blanco'
-            });
-            blanco.save(cb);
-        },
-        function(cb) {
-            async.each(['CandidatoA', 'CandidatoB'], function(nombre, cb2) {
-                var Candidato = new Modelo.Candidato({
+    // If votacion is supplied: just give back the data
+    var votacionId = req.query.votacion;
+    if (votacionId) {
+        async.series([
+            function(cb) {
+                cee = new Modelo.CEE({
+                    _id: Modelo.generarId(),
+                    nombre: 'CEE de prueba',
+                    clavePublica: req.body.key
+                });
+                cee.save(cb);
+            },
+            function(cb) {
+                Modelo.Votacion
+                    .findOne()
+                    .where('_id').equals(votacionId)
+                    .exec(function(err, r) {
+                        votacion = r;
+                        cb(err);
+                    })
+            },
+            function(cb) {
+                Modelo.Candidato
+                    .findOne()
+                    .where('votacion').equals(votacionId)
+                    .where('nif').equals('blanco')
+                    .exec(function(err, r) {
+                        blanco = r;
+                        cb(err);
+                    })
+            },
+            function(cb) {
+                Modelo.Candidato
+                    .find()
+                    .where('votacion').equals(votacionId)
+                    .where('nif').ne('blanco')
+                    .exec(function(err, r) {
+                        candidatos = r;
+                        cb(err);
+                    })
+            },
+            function(cb) {
+                Modelo.Sector
+                    .find()
+                    .where('votacion').equals(votacionId)
+                    .exec(function(err, r) {
+                        sectores = r;
+                        cb(err);
+                    })
+            }
+        ], function(err) {
+            if (err) {
+                console.log(err);
+                return res.json(err);
+            }
+
+            var respuesta = {
+                votacion: votacion,
+                cee: cee,
+                blanco: blanco,
+                candidatos: candidatos,
+                sectores: sectores,
+                censo: sectores.reduce(function(obj, sector) {
+                    censo.forEach(function(c) {
+                        if (sector.nombre == c.nombre)
+                            obj[sector.id] = c.censo;
+                    });
+                    return obj;
+                }, {})
+            };
+
+            res.json(respuesta);
+        });
+    }
+    // Else: Create CEE and other models
+    else {
+        async.series([
+            function(cb) {
+                cee = new Modelo.CEE({
+                    _id: Modelo.generarId(),
+                    nombre: 'CEE de prueba',
+                    clavePublica: req.body.key
+                });
+                cee.save(cb);
+            },
+            function(cb) {
+                votacion = new Modelo.Votacion({
+                    _id: Modelo.generarId(),
+                    nombre: 'Votación de prueba'
+                });
+                votacion.save(cb);
+            },
+            function(cb) {
+                blanco = new Modelo.Candidato({
                     _id: Modelo.generarId(),
                     votacion: votacion.id,
-                    nombre: nombre,
-                    apellidos: nombre,
-                    nif: 'test'
+                    nombre: 'blanco',
+                    apellidos: 'blanco',
+                    nif: 'blanco'
                 });
-                candidatos.push(Candidato);
-                Candidato.save(cb2);  
-            }, cb)
-        },
-        function(cb) {
-            async.each(censo, function(grupo, cb2) {
-                var Sector = new Modelo.Sector({
-                    _id: Modelo.generarId(),
-                    votacion: votacion.id,
-                    nombre: grupo.nombre,
-                    ponderacion: grupo.ponderacion
-                });
-                sectores.push(Sector);
-                Sector.save(cb2);  
-            }, cb)
-        }
-    ], function(err) {
-        if (err) {
-            console.log(err);
-            return res.json(err);
-        }
+                blanco.save(cb);
+            },
+            function(cb) {
+                async.each(['CandidatoA', 'CandidatoB'], function(nombre, cb2) {
+                    var Candidato = new Modelo.Candidato({
+                        _id: Modelo.generarId(),
+                        votacion: votacion.id,
+                        nombre: nombre,
+                        apellidos: nombre,
+                        nif: 'test'
+                    });
+                    candidatos.push(Candidato);
+                    Candidato.save(cb2);  
+                }, cb)
+            },
+            function(cb) {
+                async.each(censo, function(grupo, cb2) {
+                    var Sector = new Modelo.Sector({
+                        _id: Modelo.generarId(),
+                        votacion: votacion.id,
+                        nombre: grupo.nombre,
+                        ponderacion: grupo.ponderacion
+                    });
+                    sectores.push(Sector);
+                    Sector.save(cb2);  
+                }, cb)
+            }
+        ], function(err) {
+            if (err) {
+                console.log(err);
+                return res.json(err);
+            }
 
-        var respuesta = {
-            votacion: votacion,
-            cee: cee,
-            blanco: blanco,
-            candidatos: candidatos,
-            sectores: sectores,
-            censo: sectores.reduce(function(obj, sector) {
-                censo.forEach(function(c) {
-                    if (sector.nombre == c.nombre)
-                        obj[sector.id] = c.censo;
-                });
-                return obj;
-            }, {})
-        };
+            var respuesta = {
+                votacion: votacion,
+                cee: cee,
+                blanco: blanco,
+                candidatos: candidatos,
+                sectores: sectores,
+                censo: sectores.reduce(function(obj, sector) {
+                    censo.forEach(function(c) {
+                        if (sector.nombre == c.nombre)
+                            obj[sector.id] = c.censo;
+                    });
+                    return obj;
+                }, {})
+            };
 
-        res.json(respuesta);
-    })
+            res.json(respuesta);
+        });
+    }
 });
 
 // Connect to mongodb
