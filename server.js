@@ -31,10 +31,10 @@ app.post('/voto', function(req, res) {
         _id: Modelo.generarId(),
         timestamp: Date.now(),
         timestampEmitido: req.body.timestamp,
-        votacion: req.body.votacion_id,
-        cee: req.body.cee_id,
-        sector: req.body.sector_id,
-        candidato: req.body.candidato_id,
+        votacion: req.body.id_votacion,
+        cee: req.body.id_cee,
+        sector: req.body.id_sector,
+        candidato: req.body.id_candidato,
         nonce: req.body.nonce,
         firma: req.body.firma
     });
